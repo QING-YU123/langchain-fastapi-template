@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(find D:\\\\Projects\\\\HUIXIANG\\\\huixiang-py-bkai:*)"
+      "Bash(find D:\\\\Projects\\\\HUIXIANG\\\\huixiang-py-bkai:*)",
+      "Bash(cd:*)",
+      "Bash(git add:*)"
     ]
   }
 }

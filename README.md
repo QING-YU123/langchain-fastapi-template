@@ -1,4 +1,6 @@
 
+pip install -r requirements.txt
+
 运行指令：uvicorn app.main:app --reload --host localhost --port 8000
 
 

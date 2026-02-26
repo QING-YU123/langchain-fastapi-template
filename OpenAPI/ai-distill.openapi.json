@@ -1,0 +1,535 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "AI 知识蒸馏服务 API",
+    "description": "「入骨」(InBone) 系统的知识蒸馏接口，基于 Refine 模式的长文本 AI 蒸馏服务，支持异步处理和 Webhook 回调",
+    "version": "1.0.0",
+    "contact": {
+      "name": "API 支持",
+      "email": "support@inbone.ai"
+    },
+    "license": {
+      "name": "MIT"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8000",
+      "description": "本地开发服务器"
+    },
+    {
+      "url": "https://api.inbone.ai",
+      "description": "生产环境服务器"
+    }
+  ],
+  "paths": {
+    "/ai/distill": {
+      "post": {
+        "summary": "创建知识蒸馏任务",
+        "description": "提交长文本内容进行 AI 知识蒸馏。服务将立即返回 202 Accepted 响应，并在后台异步处理蒸馏任务。处理完成后，如果提供了 callback_url，将发送 Webhook 回调通知。",
+        "operationId": "createDistillationTask",
+        "tags": ["蒸馏服务"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DistillationRequest"
+              },
+              "examples": {
+                "basicExample": {
+                  "summary": "基础示例",
+                  "value": {
+                    "article_id": "123e4567-e89b-12d3-a456-426614174000",
+                    "content": "人工智能（Artificial Intelligence，简称 AI）是计算机科学的一个分支，它企图了解智能的实质，并生产出一种新的能以人类智能相似的方式做出反应的智能机器。该领域的研究包括机器人、语言识别、图像识别、自然语言处理和专家系统等...\n\n（这里是一篇长文本文章的完整内容）",
+                    "callback_url": "http://localhost:3000/api/webhooks/ai-distilled"
+                  }
+                },
+                "withoutCallback": {
+                  "summary": "无回调示例",
+                  "value": {
+                    "article_id": "987fcdeb-51a2-43f1-a456-426614174999",
+                    "content": "这是一篇关于量子计算的深度文章..."
+                  }
+                },
+                "withMetadata": {
+                  "summary": "带元数据示例",
+                  "value": {
+                    "article_id": "456e7890-e89b-12d3-a456-426614174111",
+                    "content": "深度学习是机器学习的一个子领域...",
+                    "callback_url": "http://localhost:3000/api/webhooks/ai-distilled",
+                    "metadata": {
+                      "source": "tech-blog",
+                      "category": "AI",
+                      "author": "张三"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "任务已接收，正在后台处理",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskResponse"
+                },
+                "examples": {
+                  "taskCreated": {
+                    "summary": "任务创建成功",
+                    "value": {
+                      "task_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                      "status": "pending",
+                      "message": "蒸馏任务已创建，正在后台处理"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "请求参数错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "invalidUUID": {
+                    "summary": "无效的 UUID",
+                    "value": {
+                      "detail": "article_id 必须是有效的 UUID 格式"
+                    }
+                  },
+                  "emptyContent": {
+                    "summary": "内容为空",
+                    "value": {
+                      "detail": "内容不能为空"
+                    }
+                  },
+                  "contentTooShort": {
+                    "summary": "内容过短",
+                    "value": {
+                      "detail": "内容过短，无法进行有效蒸馏（至少需要 50 个字符）"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务器内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "detail": "内部服务错误，请稍后重试"
+                }
+              }
+            }
+          }
+        },
+        "callbacks": {
+          "distillationCompleted": {
+            "{$request.body#/callback_url}": {
+              "post": {
+                "summary": "蒸馏完成回调",
+                "description": "当蒸馏任务完成时，系统将向此 URL 发送 POST 请求，包含蒸馏结果",
+                "operationId": "distillationCallback",
+                "requestBody": {
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "$ref": "#/components/schemas/DistillationResult"
+                      },
+                      "example": {
+                        "article_id": "123e4567-e89b-12d3-a456-426614174000",
+                        "core_summary": "AI 是计算机科学分支，研究智能实质并生产智能机器。研究涵盖机器人、语言识别、图像识别、自然语言处理等。核心目标是使机器具备类似人类的智能反应能力。",
+                        "difficulty_level": 3,
+                        "estimated_read_min": 12,
+                        "core_concepts": {
+                          "concepts": ["人工智能", "机器学习", "深度学习"],
+                          "terms": [
+                            {
+                              "term": "自然语言处理",
+                              "definition": "AI 领域中研究如何让计算机理解和生成人类语言的技术"
+                            }
+                          ]
+                        },
+                        "processed_at": "2025-02-26T10:30:45.123Z"
+                      }
+                    }
+                  }
+                }
+              },
+              "responses": {
+                "200": {
+                  "description": "回调接收成功"
+                },
+                "202": {
+                  "description": "回调接收成功，正在处理"
+                }
+              }
+            }
+          },
+          "distillationFailed": {
+            "{$request.body#/callback_url}": {
+              "post": {
+                "summary": "蒸馏失败回调",
+                "description": "当蒸馏任务失败时，系统将向此 URL 发送 POST 请求，包含错误信息",
+                "operationId": "distillationFailedCallback",
+                "requestBody": {
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "type": "object",
+                        "required": ["article_id", "task_id", "status", "error"],
+                        "properties": {
+                          "article_id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "description": "文章唯一标识符"
+                          },
+                          "task_id": {
+                            "type": "string",
+                            "description": "任务唯一标识符"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": ["failed"],
+                            "description": "任务状态"
+                          },
+                          "error": {
+                            "type": "string",
+                            "description": "错误消息"
+                          }
+                        }
+                      },
+                      "example": {
+                        "article_id": "123e4567-e89b-12d3-a456-426614174000",
+                        "task_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                        "status": "failed",
+                        "error": "处理超时（超过 600 秒）"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ai/distill/{task_id}": {
+      "get": {
+        "summary": "查询蒸馏任务状态",
+        "description": "根据任务 ID 查询蒸馏任务的当前状态。可以用于轮询任务进度，或在未提供 callback_url 时获取最终结果。",
+        "operationId": "getDistillationTaskStatus",
+        "tags": ["蒸馏服务"],
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "任务唯一标识符",
+            "example": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "任务状态查询成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskStatus"
+                },
+                "examples": {
+                  "pending": {
+                    "summary": "任务等待中",
+                    "value": {
+                      "task_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                      "status": "pending",
+                      "article_id": "123e4567-e89b-12d3-a456-426614174000",
+                      "created_at": "2025-02-26T10:30:00.000Z",
+                      "updated_at": "2025-02-26T10:30:00.000Z",
+                      "error_message": null,
+                      "result": null
+                    }
+                  },
+                  "processing": {
+                    "summary": "任务处理中",
+                    "value": {
+                      "task_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                      "status": "processing",
+                      "article_id": "123e4567-e89b-12d3-a456-426614174000",
+                      "created_at": "2025-02-26T10:30:00.000Z",
+                      "updated_at": "2025-02-26T10:30:05.000Z",
+                      "error_message": null,
+                      "result": null
+                    }
+                  },
+                  "completed": {
+                    "summary": "任务已完成",
+                    "value": {
+                      "task_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                      "status": "completed",
+                      "article_id": "123e4567-e89b-12d3-a456-426614174000",
+                      "created_at": "2025-02-26T10:30:00.000Z",
+                      "updated_at": "2025-02-26T10:32:15.000Z",
+                      "error_message": null,
+                      "result": {
+                        "article_id": "123e4567-e89b-12d3-a456-426614174000",
+                        "core_summary": "AI 是计算机科学分支，研究智能实质并生产智能机器...",
+                        "difficulty_level": 3,
+                        "estimated_read_min": 12,
+                        "core_concepts": {
+                          "concepts": ["人工智能", "机器学习"],
+                          "terms": []
+                        },
+                        "processed_at": "2025-02-26T10:32:15.123Z"
+                      }
+                    }
+                  },
+                  "failed": {
+                    "summary": "任务失败",
+                    "value": {
+                      "task_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                      "status": "failed",
+                      "article_id": "123e4567-e89b-12d3-a456-426614174000",
+                      "created_at": "2025-02-26T10:30:00.000Z",
+                      "updated_at": "2025-02-26T10:31:30.000Z",
+                      "error_message": "处理超时（超过 600 秒）",
+                      "result": null
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "任务不存在",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "detail": "任务不存在"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "蒸馏服务",
+      "description": "AI 知识蒸馏相关接口，用于长文本的智能摘要和知识提取"
+    }
+  ],
+  "components": {
+    "schemas": {
+      "DistillationRequest": {
+        "type": "object",
+        "required": ["article_id", "content"],
+        "properties": {
+          "article_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "文章唯一标识符",
+            "example": "123e4567-e89b-12d3-a456-426614174000"
+          },
+          "content": {
+            "type": "string",
+            "minLength": 50,
+            "description": "待蒸馏的长文本内容（建议至少 50 个字符）",
+            "example": "这是一篇关于人工智能的长篇文章..."
+          },
+          "callback_url": {
+            "type": "string",
+            "format": "uri",
+            "description": "可选的回调 URL，蒸馏完成后将向此地址发送 POST 通知",
+            "example": "http://localhost:3000/api/webhooks/ai-distilled"
+          },
+          "metadata": {
+            "type": "object",
+            "description": "额外的元数据信息（可选）",
+            "additionalProperties": true,
+            "example": {
+              "source": "tech-blog",
+              "category": "AI"
+            }
+          }
+        }
+      },
+      "TaskResponse": {
+        "type": "object",
+        "required": ["task_id", "status", "message"],
+        "properties": {
+          "task_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "任务唯一标识符",
+            "example": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["pending", "processing", "completed", "failed"],
+            "description": "任务状态"
+          },
+          "message": {
+            "type": "string",
+            "description": "状态消息",
+            "example": "蒸馏任务已创建，正在后台处理"
+          }
+        }
+      },
+      "TaskStatus": {
+        "type": "object",
+        "required": ["task_id", "status", "created_at", "updated_at"],
+        "properties": {
+          "task_id": {
+            "type": "string",
+            "description": "任务唯一标识符"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["pending", "processing", "completed", "failed"],
+            "description": "任务状态：pending-等待中, processing-处理中, completed-已完成, failed-失败"
+          },
+          "article_id": {
+            "type": "string",
+            "description": "关联的文章 ID",
+            "nullable": true
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "任务创建时间"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "任务最后更新时间"
+          },
+          "error_message": {
+            "type": "string",
+            "description": "错误信息（仅当 status=failed 时存在）",
+            "nullable": true
+          },
+          "result": {
+            "description": "蒸馏结果（仅当 status=completed 时存在）",
+            "nullable": true,
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/DistillationResult"
+              }
+            ]
+          }
+        }
+      },
+      "DistillationResult": {
+        "type": "object",
+        "required": ["article_id", "core_summary", "difficulty_level", "estimated_read_min", "core_concepts", "processed_at"],
+        "properties": {
+          "article_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "文章唯一标识符"
+          },
+          "core_summary": {
+            "type": "string",
+            "description": "脱水后的逻辑骨架，约为原文的 30%",
+            "example": "AI 是计算机科学分支，研究智能实质并生产智能机器..."
+          },
+          "difficulty_level": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5,
+            "description": "难度等级（1-5）：1-大众, 2-高中, 3-本科, 4-专业, 5-专家",
+            "example": 3
+          },
+          "estimated_read_min": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "预估阅读时间（分钟）",
+            "example": 12
+          },
+          "core_concepts": {
+            "$ref": "#/components/schemas/CoreConcepts"
+          },
+          "processed_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "处理完成时间戳"
+          }
+        }
+      },
+      "CoreConcepts": {
+        "type": "object",
+        "required": ["concepts", "terms"],
+        "properties": {
+          "concepts": {
+            "type": "array",
+            "description": "核心概念列表（Phase 2 功能，当前为空）",
+            "items": {
+              "type": "string"
+            },
+            "example": ["人工智能", "机器学习", "深度学习"]
+          },
+          "terms": {
+            "type": "array",
+            "description": "关键术语及定义列表（Phase 2 功能，当前为空）",
+            "items": {
+              "type": "object",
+              "required": ["term", "definition"],
+              "properties": {
+                "term": {
+                  "type": "string",
+                  "description": "术语名称",
+                  "example": "自然语言处理"
+                },
+                "definition": {
+                  "type": "string",
+                  "description": "术语定义",
+                  "example": "AI 领域中研究如何让计算机理解和生成人类语言的技术"
+                }
+              }
+            }
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "required": ["detail"],
+        "properties": {
+          "detail": {
+            "type": "string",
+            "description": "错误详情",
+            "example": "缺少必需参数"
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "ApiKeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-API-Key",
+        "description": "API 密钥认证（未来版本支持）"
+      }
+    }
+  },
+  "security": []
+}
