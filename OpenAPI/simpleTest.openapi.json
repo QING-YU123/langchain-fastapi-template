@@ -1,0 +1,323 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "LangChain 聊天服务 API",
+    "description": "基于 LangChain 和 LangServe 的模块化聊天服务接口",
+    "version": "1.0.0",
+    "contact": {
+      "name": "API 支持"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8000",
+      "description": "本地开发服务器"
+    }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "summary": "健康检查",
+        "description": "检查服务是否正常运行",
+        "operationId": "healthCheck",
+        "tags": ["系统"],
+        "responses": {
+          "200": {
+            "description": "服务正常",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "ok",
+                      "description": "服务状态"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "LangServe is running.",
+                      "description": "状态消息"
+                    }
+                  }
+                },
+                "example": {
+                  "status": "ok",
+                  "message": "LangServe is running."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/chat/simple": {
+      "post": {
+        "summary": "简单聊天",
+        "description": "发送聊天消息，获取 AI 助手的幽默回复。助手会以冷幽默的方式用一两句话简短回答关于指定话题的看法。",
+        "operationId": "simpleChat",
+        "tags": ["聊天"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["input"],
+                "properties": {
+                  "input": {
+                    "type": "object",
+                    "required": ["topic"],
+                    "properties": {
+                      "topic": {
+                        "type": "string",
+                        "description": "要讨论的话题",
+                        "example": "人工智能",
+                        "minLength": 1
+                      }
+                    }
+                  },
+                  "config": {
+                    "type": "object",
+                    "description": "可选的配置参数",
+                    "properties": {
+                      "temperature": {
+                        "type": "number",
+                        "description": "控制输出随机性 (0.0-1.0)",
+                        "minimum": 0,
+                        "maximum": 1,
+                        "example": 0.7
+                      }
+                    }
+                  }
+                }
+              },
+              "example": {
+                "input": {
+                  "topic": "人工智能"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "聊天成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "output": {
+                      "type": "string",
+                      "description": "AI 助手的回复内容"
+                    }
+                  }
+                },
+                "example": {
+                  "output": "人工智能啊，就像咖啡一样，有人爱得要死，有人担心它会让你睡不着觉。"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "请求参数错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "detail": {
+                      "type": "string",
+                      "description": "错误详情"
+                    }
+                  }
+                },
+                "example": {
+                  "detail": "缺少必需参数: topic"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务器内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "detail": {
+                      "type": "string",
+                      "description": "错误详情"
+                    }
+                  }
+                },
+                "example": {
+                  "detail": "内部服务错误"
+                }
+              }
+            }
+          }
+        }
+      },
+      "invoke": {
+        "summary": "直接调用简单聊天",
+        "description": "LangServe 提供的直接调用端点",
+        "operationId": "invokeSimpleChat",
+        "tags": ["聊天"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["topic"],
+                "properties": {
+                  "topic": {
+                    "type": "string",
+                    "description": "要讨论的话题",
+                    "example": "人工智能"
+                  }
+                }
+              },
+              "example": {
+                "topic": "人工智能"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "调用成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                },
+                "example": "人工智能啊，就像咖啡一样，有人爱得要死，有人担心它会让你睡不着觉。"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/chat/simple/config": {
+      "get": {
+        "summary": "获取聊天链配置",
+        "description": "获取简单聊天链的配置信息",
+        "operationId": "getSimpleChatConfig",
+        "tags": ["配置"],
+        "responses": {
+          "200": {
+            "description": "配置获取成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/chat/simple/playground/{trace_id}": {
+      "get": {
+        "summary": "获取追踪信息",
+        "description": "获取指定 trace_id 的执行追踪信息",
+        "operationId": "getTraceInfo",
+        "tags": ["调试"],
+        "parameters": [
+          {
+            "name": "trace_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "追踪 ID",
+            "example": "abc123xyz"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "追踪信息获取成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "追踪 ID 不存在"
+          }
+        }
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "系统",
+      "description": "系统级别的健康检查和状态接口"
+    },
+    {
+      "name": "聊天",
+      "description": "聊天相关的接口"
+    },
+    {
+      "name": "配置",
+      "description": "配置相关的接口"
+    },
+    {
+      "name": "调试",
+      "description": "调试和追踪相关的接口"
+    }
+  ],
+  "components": {
+    "schemas": {
+      "HealthResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "description": "服务状态"
+          },
+          "message": {
+            "type": "string",
+            "description": "状态消息"
+          }
+        }
+      },
+      "ChatInput": {
+        "type": "object",
+        "required": ["topic"],
+        "properties": {
+          "topic": {
+            "type": "string",
+            "description": "要讨论的话题"
+          }
+        }
+      },
+      "ChatOutput": {
+        "type": "object",
+        "properties": {
+          "output": {
+            "type": "string",
+            "description": "AI 助手的回复内容"
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "detail": {
+            "type": "string",
+            "description": "错误详情"
+          }
+        }
+      }
+    }
+  }
+}
